@@ -15,7 +15,13 @@ spec:
               namespaces: [sa-p8-prod]
       verifyImages:
         - imageReferences:
-            - "ghcr.io/carbonell-castillo/*:*"
+            - "ghcr.io/carbonell-castillo/auth-service:*"
+            - "ghcr.io/carbonell-castillo/authorization-service:*"
+            - "ghcr.io/carbonell-castillo/products-service:*"
+            - "ghcr.io/carbonell-castillo/orders-service:*"
+            - "ghcr.io/carbonell-castillo/notifications-service:*"
+            - "ghcr.io/carbonell-castillo/gateway:*"
+            - "ghcr.io/carbonell-castillo/frontend:*"
           required: true
           mutateDigest: true
           verifyDigest: true
