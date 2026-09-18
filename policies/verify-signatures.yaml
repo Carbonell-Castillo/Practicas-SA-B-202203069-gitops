@@ -2,6 +2,8 @@ apiVersion: kyverno.io/v1
 kind: ClusterPolicy
 metadata:
   name: verify-ghcr-signatures
+  annotations:
+    argocd.argoproj.io/sync-wave: "-1"
 spec:
   validationFailureAction: Enforce
   webhookTimeoutSeconds: 30
