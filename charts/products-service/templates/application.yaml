@@ -69,7 +69,7 @@ spec:
       stableService: {{ $name }}-stable
       canaryService: {{ $name }}-canary
       maxSurge: "25%"
-      maxUnavailable: 0
+      maxUnavailable: 1
       steps:
         - setWeight: 10
         - analysis:
