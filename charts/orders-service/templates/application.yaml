@@ -120,7 +120,7 @@ spec:
 {{ toYaml .Values.resources | indent 12 }}
           envFrom:
             - secretRef:
-                name: sa-platform-runtime
+                name: {{ .Values.secretName }}
                 optional: true
           env:
 {{- range $key, $value := .Values.env }}

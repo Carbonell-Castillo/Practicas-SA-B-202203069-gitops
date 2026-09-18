@@ -1,6 +1,6 @@
-replicaCount: 3
+replicaCount: 2
 image:
-  tag: "1.0.0"
+  tag: "0.9.0"
 env:
   LOG_LEVEL: warn
 resources:
