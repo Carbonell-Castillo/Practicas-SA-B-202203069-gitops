@@ -3,13 +3,15 @@ kind: Application
 metadata:
   name: sa-platform-prod
   namespace: argocd
+  annotations:
+    argocd.argoproj.io/sync-wave: "10"
   finalizers:
     - resources-finalizer.argocd.argoproj.io
 spec:
   project: sa-platform
   destination:
     server: https://kubernetes.default.svc
-    namespace: sa-p8-prod
+    namespace: sa-p9-prod
   sources:
     - repoURL: https://github.com/Carbonell-Castillo/Practicas-SA-B-202203069-gitops.git
       targetRevision: main
@@ -68,6 +70,11 @@ spec:
     - repoURL: https://github.com/Carbonell-Castillo/Practicas-SA-B-202203069-gitops.git
       targetRevision: main
       path: manifests/prod
+      directory:
+        recurse: true
+    - repoURL: https://github.com/Carbonell-Castillo/Practicas-SA-B-202203069-gitops.git
+      targetRevision: main
+      path: manifests/dr
       directory:
         recurse: true
     - repoURL: https://github.com/Carbonell-Castillo/Practicas-SA-B-202203069-gitops.git

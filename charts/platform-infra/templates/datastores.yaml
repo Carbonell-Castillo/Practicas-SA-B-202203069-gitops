@@ -43,6 +43,8 @@ spec:
       app.kubernetes.io/name: postgres
   template:
     metadata:
+      annotations:
+        backup.velero.io/backup-volumes: data
       labels:
         app.kubernetes.io/name: postgres
         app.kubernetes.io/part-of: sa-platform
@@ -139,6 +141,8 @@ spec:
       app.kubernetes.io/name: rabbitmq
   template:
     metadata:
+      annotations:
+        backup.velero.io/backup-volumes: data
       labels:
         app.kubernetes.io/name: rabbitmq
         app.kubernetes.io/part-of: sa-platform

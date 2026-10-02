@@ -14,7 +14,7 @@ spec:
         any:
           - resources:
               kinds: [Pod]
-              namespaces: [sa-p8-prod]
+              namespaces: [sa-p9-prod]
       verifyImages:
         - imageReferences:
             - "ghcr.io/carbonell-castillo/auth-service:*"

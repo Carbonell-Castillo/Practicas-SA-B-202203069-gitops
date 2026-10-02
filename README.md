@@ -1,14 +1,15 @@
-# Repositorio GitOps de SA - Práctica 8
+# Repositorio GitOps de SA — Práctica 9
 
-Este directorio es el contenido listo para publicarse como el repositorio independiente `Practicas-SA-B-202203069-gitops`. El repositorio es la única fuente de verdad de aplicaciones; ArgoCD realiza toda reconciliación.
+Este repositorio público es la única fuente de verdad de aplicaciones; ArgoCD realiza toda reconciliación. La raíz `sa-p9-apps` implementa app-of-apps y reconstruye operadores y plataforma sin pasos manuales intermedios.
 
 ## Estructura
 
-- `argocd/`: proyecto y aplicación multi-source `sa-platform-prod`.
+- `argocd/apps/`: AppProject y aplicaciones hijas para Rollouts, Kyverno, ingress-nginx, External Secrets, Velero y `sa-platform-prod`.
 - `charts/`: un chart por microservicio o tarea, más el chart de PostgreSQL/RabbitMQ, con perfiles `dev` y `prod`.
-- `manifests/prod/`: políticas de red y secretos cifrados con Sealed Secrets.
+- `manifests/prod/`: políticas de red y External Secrets respaldados por Google Secret Manager.
+- `manifests/dr/`: schedule horario de Velero con retención de siete días.
 - `policies/`: cuatro políticas Kyverno en modo Enforce.
 
-Antes de sincronizar, instale en el clúster ArgoCD, Argo Rollouts, Kyverno, Sealed Secrets e ingress-nginx, y cree la infraestructura base con Terraform desde el repositorio de código. El bootstrap inicial de `argocd/project.yaml` y `argocd/application-prod.yaml` se realiza desde una estación administrativa; las políticas también son reconciliadas por ArgoCD. A partir de ese momento, ningún workflow posee acceso al clúster.
+Terraform instala únicamente ArgoCD y la aplicación raíz `sa-p9-apps`. Esa raíz instala el resto desde este repositorio. Workload Identity permite que Velero y External Secrets accedan solo a sus recursos GCP, sin llaves JSON dentro del clúster.
 
 Las versiones se modifican exclusivamente en `charts/*/values-prod.yaml` mediante el Pull Request automático generado por el pipeline del repositorio de código.

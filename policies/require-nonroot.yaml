@@ -11,7 +11,7 @@ spec:
         any:
           - resources:
               kinds: [Pod]
-              namespaces: [sa-p8-prod]
+              namespaces: [sa-p9-prod]
       validate:
         message: Los pods deben ejecutarse sin root ni escalamiento de privilegios.
         pattern:
