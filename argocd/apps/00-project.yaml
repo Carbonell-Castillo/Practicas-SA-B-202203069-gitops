@@ -10,6 +10,8 @@ spec:
   destinations:
     - namespace: sa-p9-prod
       server: https://kubernetes.default.svc
+    - namespace: velero
+      server: https://kubernetes.default.svc
   clusterResourceWhitelist:
     - group: kyverno.io
       kind: ClusterPolicy
