@@ -154,6 +154,27 @@ spec:
         fsGroup: 999
         seccompProfile:
           type: RuntimeDefault
+      initContainers:
+        - name: normalize-rabbitmq-cookie
+          image: {{ .Values.rabbitmq.image | quote }}
+          command: ["sh", "-ec"]
+          args:
+            - if [ -f /var/lib/rabbitmq/.erlang.cookie ]; then chmod 600 /var/lib/rabbitmq/.erlang.cookie; fi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          resources:
+            requests:
+              cpu: 5m
+              memory: 8Mi
+            limits:
+              cpu: 50m
+              memory: 32Mi
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/rabbitmq
       containers:
         - name: rabbitmq
           image: {{ .Values.rabbitmq.image | quote }}
