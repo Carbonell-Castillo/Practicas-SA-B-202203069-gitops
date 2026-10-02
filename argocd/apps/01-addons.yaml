@@ -105,6 +105,8 @@ spec:
       kind: CustomResourceDefinition
       jsonPointers:
         - /spec/conversion
+        - /metadata/annotations
+        - /metadata/labels
   syncPolicy:
     automated: {prune: true, selfHeal: true}
     syncOptions: [CreateNamespace=false, ServerSideApply=true, RespectIgnoreDifferences=true]
