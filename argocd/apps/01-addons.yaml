@@ -98,9 +98,16 @@ spec:
         reportsController:
           replicas: 1
   destination: {server: https://kubernetes.default.svc, namespace: kyverno}
+  # Kubernetes defaults conversion.strategy=None in CRDs that omit this field.
+  # Ignore only that server-added field so schema/version drift remains visible.
+  ignoreDifferences:
+    - group: apiextensions.k8s.io
+      kind: CustomResourceDefinition
+      jsonPointers:
+        - /spec/conversion
   syncPolicy:
     automated: {prune: true, selfHeal: true}
-    syncOptions: [CreateNamespace=false, ServerSideApply=true]
+    syncOptions: [CreateNamespace=false, ServerSideApply=true, RespectIgnoreDifferences=true]
 ---
 apiVersion: argoproj.io/v1alpha1
 kind: Application
