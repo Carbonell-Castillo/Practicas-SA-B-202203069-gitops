@@ -80,6 +80,12 @@ spec:
         singleBinary:
           replicas: 1
           persistence: {enabled: false}
+          extraVolumes:
+            - name: loki-data
+              emptyDir: {}
+          extraVolumeMounts:
+            - name: loki-data
+              mountPath: /var/loki
           resources:
             requests: {cpu: 75m, memory: 192Mi}
             limits: {cpu: 500m, memory: 512Mi}
