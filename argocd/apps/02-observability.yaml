@@ -1,0 +1,207 @@
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: prometheus-stack
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-15"}
+spec:
+  project: default
+  source:
+    repoURL: https://prometheus-community.github.io/helm-charts
+    chart: kube-prometheus-stack
+    targetRevision: 92.10.1
+    helm:
+      releaseName: kube-prometheus-stack
+      values: |
+        prometheus:
+          prometheusSpec:
+            retention: 24h
+            serviceMonitorSelectorNilUsesHelmValues: false
+            ruleSelectorNilUsesHelmValues: false
+            resources:
+              requests: {cpu: 150m, memory: 512Mi}
+              limits: {cpu: 750m, memory: 1Gi}
+        alertmanager:
+          alertmanagerSpec:
+            resources:
+              requests: {cpu: 25m, memory: 64Mi}
+              limits: {cpu: 200m, memory: 192Mi}
+        grafana:
+          adminPassword: p10-observabilidad
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 300m, memory: 384Mi}
+          sidecar:
+            dashboards:
+              enabled: true
+              label: grafana_dashboard
+            datasources:
+              enabled: true
+              label: grafana_datasource
+        prometheus-node-exporter:
+          resources:
+            requests: {cpu: 20m, memory: 32Mi}
+            limits: {cpu: 100m, memory: 64Mi}
+  destination: {server: https://kubernetes.default.svc, namespace: observabilidad}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true, ServerSideApply=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: loki
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-14"}
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: loki
+    targetRevision: 7.3.0
+    helm:
+      releaseName: loki
+      values: |
+        deploymentMode: SingleBinary
+        loki:
+          auth_enabled: false
+          commonConfig: {replication_factor: 1}
+          storage: {type: filesystem}
+          schemaConfig:
+            configs:
+              - from: "2024-01-01"
+                store: tsdb
+                object_store: filesystem
+                schema: v13
+                index: {prefix: index_, period: 24h}
+          limits_config: {retention_period: 24h}
+        singleBinary:
+          replicas: 1
+          persistence: {enabled: false}
+          resources:
+            requests: {cpu: 75m, memory: 192Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+        backend: {replicas: 0}
+        read: {replicas: 0}
+        write: {replicas: 0}
+        chunksCache: {enabled: false}
+        resultsCache: {enabled: false}
+        gateway: {enabled: true, replicas: 1}
+  destination: {server: https://kubernetes.default.svc, namespace: observabilidad}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: tempo
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-14"}
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: tempo
+    targetRevision: 1.24.4
+    helm:
+      releaseName: tempo
+      values: |
+        tempo:
+          retention: 24h
+          receivers:
+            otlp:
+              protocols:
+                grpc: {endpoint: 0.0.0.0:4317}
+                http: {endpoint: 0.0.0.0:4318}
+          resources:
+            requests: {cpu: 50m, memory: 128Mi}
+            limits: {cpu: 500m, memory: 512Mi}
+        persistence: {enabled: false}
+  destination: {server: https://kubernetes.default.svc, namespace: observabilidad}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: promtail
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-13"}
+spec:
+  project: default
+  source:
+    repoURL: https://grafana.github.io/helm-charts
+    chart: promtail
+    targetRevision: 6.17.1
+    helm:
+      releaseName: promtail
+      values: |
+        config:
+          clients:
+            - url: http://loki-gateway.observabilidad.svc/loki/api/v1/push
+        resources:
+          requests: {cpu: 20m, memory: 64Mi}
+          limits: {cpu: 200m, memory: 192Mi}
+  destination: {server: https://kubernetes.default.svc, namespace: observabilidad}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: otel-collector
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-13"}
+spec:
+  project: default
+  source:
+    repoURL: https://open-telemetry.github.io/opentelemetry-helm-charts
+    chart: opentelemetry-collector
+    targetRevision: 0.176.0
+    helm:
+      releaseName: otel-collector
+      values: |
+        mode: deployment
+        image: {repository: otel/opentelemetry-collector-contrib}
+        command: {name: otelcol-contrib}
+        replicaCount: 1
+        presets:
+          kubernetesAttributes: {enabled: true}
+        config:
+          exporters:
+            otlp/tempo:
+              endpoint: tempo.observabilidad.svc:4317
+              tls: {insecure: true}
+          service:
+            pipelines:
+              traces:
+                receivers: [otlp]
+                processors: [memory_limiter, k8sattributes, batch]
+                exporters: [otlp/tempo]
+        resources:
+          requests: {cpu: 50m, memory: 96Mi}
+          limits: {cpu: 300m, memory: 256Mi}
+  destination: {server: https://kubernetes.default.svc, namespace: observabilidad}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]
+---
+apiVersion: argoproj.io/v1alpha1
+kind: Application
+metadata:
+  name: p10-observability-config
+  namespace: argocd
+  annotations: {argocd.argoproj.io/sync-wave: "-12"}
+spec:
+  project: sa-platform
+  source:
+    repoURL: https://github.com/Carbonell-Castillo/Practicas-SA-B-202203069-gitops.git
+    targetRevision: main
+    path: charts/p10-observability
+  destination: {server: https://kubernetes.default.svc, namespace: observabilidad}
+  syncPolicy:
+    automated: {prune: true, selfHeal: true}
+    syncOptions: [CreateNamespace=true]

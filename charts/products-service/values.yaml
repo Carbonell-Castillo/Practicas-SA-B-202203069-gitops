@@ -15,6 +15,9 @@ health:
 
 env:
   LOG_LEVEL: info
+  OTEL_SERVICE_NAME: products-service
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observabilidad.svc:4318
+  OTEL_PROPAGATORS: tracecontext,baggage
   PORT: "4002"
 
 resources:

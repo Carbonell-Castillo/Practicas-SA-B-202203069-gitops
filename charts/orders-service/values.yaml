@@ -15,6 +15,10 @@ health:
 
 env:
   LOG_LEVEL: info
+  OTEL_SERVICE_NAME: orders-service
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observabilidad.svc:4318
+  OTEL_PROPAGATORS: tracecontext,baggage
+  P10_DELAY_MS: "0"
   PORT: "4003"
   PRODUCTS_SERVICE_URL: http://products-service-stable:4002/graphql
 

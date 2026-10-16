@@ -1,0 +1,109 @@
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: p10-instrumented-services
+  labels: {release: kube-prometheus-stack}
+spec:
+  namespaceSelector:
+    matchNames: [{{ .Values.applicationNamespace }}]
+  selector:
+    matchExpressions:
+      - key: observability.p10/enabled
+        operator: In
+        values: ["true"]
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: 15s
+      scrapeTimeout: 10s
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: p10-slo-rules
+  labels: {release: kube-prometheus-stack}
+spec:
+  groups:
+    - name: p10.sli.recording
+      interval: 30s
+      rules:
+        - record: slo:http_availability:ratio_rate5m
+          expr: 1 - ((sum(rate(http_server_requests_total{service=~"gateway|orders-service|products-service",status_code=~"5.."}[5m])) or vector(0)) / clamp_min(sum(rate(http_server_requests_total{service=~"gateway|orders-service|products-service"}[5m])), 0.001))
+        - record: slo:http_latency_p95:seconds_rate5m
+          expr: histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{service=~"gateway|orders-service|products-service"}[5m])))
+        - record: slo:availability_error_budget:consumed_ratio_1h
+          expr: (1 - avg_over_time(slo:http_availability:ratio_rate5m[1h])) / (1 - 0.995)
+        - record: slo:latency_error_budget:consumed_ratio_1h
+          expr: sum(rate(http_server_request_duration_seconds_count{service=~"gateway|orders-service|products-service"}[1h])) - sum(rate(http_server_request_duration_seconds_bucket{service=~"gateway|orders-service|products-service",le="0.75"}[1h])) / clamp_min(sum(rate(http_server_request_duration_seconds_count{service=~"gateway|orders-service|products-service"}[1h])), 0.001)
+    - name: p10.error-budget.alerts
+      rules:
+        - alert: P10AvailabilityErrorBudgetFastBurn
+          expr: slo:availability_error_budget:consumed_ratio_1h > 14.4
+          for: 2m
+          labels: {severity: critical, slo: availability}
+          annotations:
+            summary: Presupuesto de error de disponibilidad con consumo acelerado
+            runbook_url: https://github.com/Carbonell-Castillo/Practicas-SA-B-202203069/blob/main/P10/runbooks/availability-burn.md
+        - alert: P10LatencyErrorBudgetBurn
+          expr: slo:latency_error_budget:consumed_ratio_1h > 6
+          for: 5m
+          labels: {severity: warning, slo: latency}
+          annotations:
+            summary: Presupuesto de error de latencia con consumo acelerado
+            runbook_url: https://github.com/Carbonell-Castillo/Practicas-SA-B-202203069/blob/main/P10/runbooks/latency-burn.md
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p10-grafana-datasources
+  labels: {grafana_datasource: "1"}
+data:
+  datasources.yaml: |
+    apiVersion: 1
+    datasources:
+      - name: Prometheus
+        type: prometheus
+        uid: prometheus
+        url: http://kube-prometheus-stack-prometheus:9090
+        isDefault: true
+      - name: Loki
+        type: loki
+        uid: loki
+        url: http://loki-gateway
+        jsonData:
+          derivedFields:
+            - name: TraceID
+              matcherRegex: '"trace_id":"([a-f0-9]{32})"'
+              datasourceUid: tempo
+              url: '$${__value.raw}'
+      - name: Tempo
+        type: tempo
+        uid: tempo
+        url: http://tempo:3100
+        jsonData:
+          tracesToLogsV2:
+            datasourceUid: loki
+            filterByTraceID: true
+            spanStartTimeShift: -2m
+            spanEndTimeShift: 2m
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: p10-golden-signals-dashboard
+  labels: {grafana_dashboard: "1"}
+data:
+  p10-golden-signals.json: |
+    {
+      "uid": "p10-golden-signals", "title": "P10 - Golden Signals y Negocio", "schemaVersion": 39,
+      "tags": ["p10", "slo", "golden-signals"], "timezone": "browser", "refresh": "15s",
+      "panels": [
+        {"id":1,"type":"timeseries","title":"Traffic - solicitudes/s","datasource":{"uid":"prometheus"},"targets":[{"expr":"sum by (service) (rate(http_server_requests_total[5m]))"}],"gridPos":{"h":8,"w":12,"x":0,"y":0}},
+        {"id":2,"type":"timeseries","title":"Errors - tasa 5xx","datasource":{"uid":"prometheus"},"targets":[{"expr":"sum(rate(http_server_requests_total{status_code=~\"5..\"}[5m])) / clamp_min(sum(rate(http_server_requests_total[5m])), 0.001)","legendFormat":"error rate"}],"gridPos":{"h":8,"w":12,"x":12,"y":0}},
+        {"id":3,"type":"timeseries","title":"Latency - p95","datasource":{"uid":"prometheus"},"targets":[{"expr":"slo:http_latency_p95:seconds_rate5m","legendFormat":"p95"}],"gridPos":{"h":8,"w":12,"x":0,"y":8}},
+        {"id":4,"type":"timeseries","title":"Saturation - CPU","datasource":{"uid":"prometheus"},"targets":[{"expr":"sum(rate(container_cpu_usage_seconds_total{namespace=\"sa-p9-prod\",container!=\"\"}[5m])) by (pod)"}],"gridPos":{"h":8,"w":12,"x":12,"y":8}},
+        {"id":5,"type":"stat","title":"Negocio - pedidos creados","datasource":{"uid":"prometheus"},"targets":[{"expr":"sum(pedidos_creados_total)","legendFormat":"pedidos"}],"gridPos":{"h":6,"w":8,"x":0,"y":16}},
+        {"id":6,"type":"stat","title":"Negocio - consultas inventario","datasource":{"uid":"prometheus"},"targets":[{"expr":"sum(inventario_consultas_total)","legendFormat":"consultas"}],"gridPos":{"h":6,"w":8,"x":8,"y":16}},
+        {"id":7,"type":"timeseries","title":"Error budget consumido","datasource":{"uid":"prometheus"},"targets":[{"expr":"slo:availability_error_budget:consumed_ratio_1h","legendFormat":"disponibilidad"},{"expr":"slo:latency_error_budget:consumed_ratio_1h","legendFormat":"latencia"}],"gridPos":{"h":6,"w":8,"x":16,"y":16}}
+      ]
+    }

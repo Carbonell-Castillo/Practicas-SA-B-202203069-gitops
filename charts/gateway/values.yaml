@@ -21,6 +21,10 @@ ingress:
 
 env:
   LOG_LEVEL: info
+  OTEL_SERVICE_NAME: gateway
+  OTEL_EXPORTER_OTLP_ENDPOINT: http://otel-collector.observabilidad.svc:4318
+  OTEL_PROPAGATORS: tracecontext,baggage
+  P10_DELAY_MS: "0"
   PORT: "8080"
   FRONTEND_URL: http://frontend-stable:3000
   AUTH_SERVICE_URL: http://auth-service-stable:4000
